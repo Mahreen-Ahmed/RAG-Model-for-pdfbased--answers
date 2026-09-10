@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+
+# Database files
+*.db
+*.sqlite3
+
+# Vector store / ChromaDB data
+data/chromadb/
+data/uploads/
+vectordb/chroma.sqlite3
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# ChromaDB server
+chromadb-server
+
+# Uploaded PDFs and test files
+test_sample.pdf
+data/uploads/
+
+# IDE
+.vscode/
+.idea/
