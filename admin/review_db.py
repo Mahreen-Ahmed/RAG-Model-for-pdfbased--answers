@@ -232,6 +232,53 @@ class ReviewDB:
                 results.append(item)
             return results
 
+    def list_sessions(self) -> List[Dict[str, Any]]:
+        """Return all chat sessions with preview info, ordered by most recent activity."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    session_id,
+                    MIN(question) as first_question,
+                    COUNT(*) as query_count,
+                    MIN(created_at) as started_at,
+                    MAX(created_at) as last_active_at
+                FROM queries
+                GROUP BY session_id
+                ORDER BY MAX(created_at) DESC
+            """)
+            rows = cursor.fetchall()
+            results = []
+            for r in rows:
+                item = dict(r)
+                # Truncate the first question for preview
+                fq = item.get("first_question", "")
+                item["preview"] = (fq[:80] + "…") if len(fq) > 80 else fq
+                results.append(item)
+            return results
+
+    def get_session_queries(self, session_id: str) -> List[Dict[str, Any]]:
+        """Return all queries for a given session, ordered newest-first (matching frontend qaHistory order)."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT q.id as query_id, q.session_id, q.question, q.answer, q.provider,
+                       q.sources_json, q.is_grounded, q.created_at,
+                       r.user_rating
+                FROM queries q
+                LEFT JOIN reviews r ON q.id = r.query_id
+                WHERE q.session_id = ?
+                ORDER BY q.created_at DESC
+            """, (session_id,))
+            rows = cursor.fetchall()
+            results = []
+            for r in rows:
+                item = dict(r)
+                item["sources"] = json.loads(item.pop("sources_json", "[]") or "[]")
+                item["is_grounded"] = bool(item.get("is_grounded", 1))
+                results.append(item)
+            return results
+
     def get_stats(self) -> Dict[str, Any]:
         with self.get_connection() as conn:
             cursor = conn.cursor()

@@ -195,6 +195,19 @@ async def delete_document(filename: str):
     await run_in_threadpool(_delete)
     return {"status": "deleted", "filename": filename}
 
+@app.get("/api/sessions")
+async def list_sessions():
+    """List all chat sessions with preview info for the sidebar."""
+    sessions = await run_in_threadpool(review_db.list_sessions)
+    return {"sessions": sessions}
+
+@app.get("/api/sessions/{session_id}")
+async def get_session(session_id: str):
+    """Get full Q&A history for a specific chat session."""
+    queries = await run_in_threadpool(review_db.get_session_queries, session_id)
+    return {"session_id": session_id, "queries": queries}
+
+
 @app.post("/api/query")
 async def query_rag(req: QueryRequest):
     if not req.question.strip():
