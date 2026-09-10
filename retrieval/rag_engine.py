@@ -124,8 +124,56 @@ class RAGEngine:
                 # Fallback on failure
                 pass
 
+        # Attempt Ollama (local LLM, no API key required)
+        if config.LLM_PROVIDER in ("ollama", "auto") or (
+            config.LLM_PROVIDER not in ("openai", "anthropic", "offline")
+        ):
+            result = self._ollama_generation(question, system_prompt, user_prompt)
+            if result is not None:
+                return result
+
+        # Also try Ollama as a fallback when the configured cloud provider failed
+        if config.LLM_PROVIDER in ("openai", "anthropic"):
+            ConsoleLogger.warning("Cloud provider failed. Trying Ollama as fallback...")
+            result = self._ollama_generation(question, system_prompt, user_prompt)
+            if result is not None:
+                return result
+
         # Built-in Offline Extractive Generator (standalone, zero external API keys needed)
         return self._offline_extractive_generation(question, chunks)
+
+    def _ollama_generation(self, question: str, system_prompt: str, user_prompt: str):
+        """
+        Calls a locally running Ollama model via its HTTP API.
+        Returns a (answer, provider_label, is_grounded) tuple on success, or None on failure.
+        """
+        try:
+            import requests
+            payload = {
+                "model": config.OLLAMA_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_prompt}
+                ],
+                "stream": False,
+                "options": {"temperature": 0.0}
+            }
+            response = requests.post(
+                f"{config.OLLAMA_HOST}/api/chat",
+                json=payload,
+                timeout=120
+            )
+            response.raise_for_status()
+            data = response.json()
+            raw = data["message"]["content"]
+            # Strip qwen3 <think>...</think> reasoning blocks if present
+            answer = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+            is_grounded = "cannot find the answer" not in answer.lower()
+            ConsoleLogger.info(f"Ollama ({config.OLLAMA_MODEL}) responded successfully.")
+            return answer, f"Ollama ({config.OLLAMA_MODEL})", is_grounded
+        except Exception as e:
+            ConsoleLogger.warning(f"Ollama unavailable or failed: {e}. Falling back to offline engine.")
+            return None
 
     def _offline_extractive_generation(self, question: str, chunks: List[Dict[str, Any]]) -> Tuple[str, str, bool]:
         """

@@ -20,7 +20,11 @@ for directory in [DATA_DIR, UPLOADS_DIR, CHROMA_DIR, STANDALONE_DIR]:
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 
-# Determine active LLM provider: 'openai', 'anthropic', or 'offline'
+# Ollama settings (local, no API key needed)
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").strip()
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:8b").strip()
+
+# Determine active LLM provider: 'openai', 'anthropic', 'ollama', or 'offline'
 configured_provider = os.getenv("LLM_PROVIDER", "auto").strip().lower()
 if configured_provider == "auto":
     if OPENAI_API_KEY:
@@ -28,7 +32,7 @@ if configured_provider == "auto":
     elif ANTHROPIC_API_KEY:
         LLM_PROVIDER = "anthropic"
     else:
-        LLM_PROVIDER = "offline"
+        LLM_PROVIDER = "ollama"  # Try local Ollama before falling back to offline
 else:
     LLM_PROVIDER = configured_provider
 
